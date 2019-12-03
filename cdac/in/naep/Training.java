@@ -13,10 +13,10 @@ class Utility{
 
 		Map<String,TreeMap<Integer,Double>> percentiles = new TreeMap<String, TreeMap<Integer,Double>>();
 		for(String key: data.keySet() ){
+
 			List<Integer> all = new ArrayList<Integer>( data.get( key ) );
 			Collections.sort( all );
 			TreeMap<Integer, Double> percentile = new TreeMap<Integer, Double>();
-
 			for(int i = 0; i < all.size(); i++){
 				double p = Math.round( (double ) i  / (double) all.size() * (double) 100 ) / (double) 100;
 				percentile.put( all.get( i ), p );
@@ -92,7 +92,6 @@ class Question{
 
 		ArrayList<Double> all = new ArrayList<Double>( timeTakens );
 		Collections.sort( all );
-
 		long index = Math.round( (  (double) 5 / (double) 100 ) *  ( double ) all.size() );
 		this.fifthPercentile = all.get ( (int) index );
 
@@ -109,30 +108,27 @@ class Response{
 	String id;
 	String type;
 
-	List<String> enterTime;
-	List<String> exitTime;	
+	Map<String, Integer> obserableCounts;	
+	Map<String, Integer> infoCounts;
 	
 	Double totalTime;
-	Double percentileTime;
-
-	Integer obserableCounts;
-	Integer infoCounts;
 	Integer attempts;
+
+	List<String> enterTime;
+	List<String> exitTime;	
 
 	Response(String id, String type){
 
 		this.type = type;	
 		this.id = id;
-
 		this.enterTime = null;
 		this.exitTime = null;
 
-		this.totalTime = 0.0d;
-		this.percentileTime = 0.0d;		
-		this.attempts = 0;
+		this.obserableCounts = new TreeMap<String, Integer>();
+		this.infoCounts = new TreeMap<String, Integer>();
 
-		this.obserableCounts = 0;
-		this.infoCounts = 0;
+		this.totalTime = 0.0d;
+		this.attempts = 0;
 
 		this.enterTime = new ArrayList<String>();
 		this.exitTime = new ArrayList<String>();
@@ -168,27 +164,33 @@ class Student{
 class Data{
 
 	String lable;
-	Set<Double> totalTimes;
+
 
 	Map<String, Student> students;
 	Map<String, Question> questions;
 
+	Set<Double> totalTimes;
+	Set<Integer> activities;
 	Map<String, TreeSet<Integer>> qTypeCounts;
 
 	Map<String, TreeMap<Integer, Double>> qTypeCountPercentile;
 	Map<Double, Double> totalTimePercentile;
+	Map<Integer, Double> activitiesPercentile;
 
 	Data( String lable ){
 
 		this.lable = lable;
-		this.totalTimes = new TreeSet<Double>();
 
 		this.students = new TreeMap<String, Student> ();
 		this.questions = new TreeMap<String, Question> ();
 
+		this.totalTimes = new TreeSet<Double>();
+		this.activities = new TreeSet<Integer>();
+
 		this.qTypeCounts = new TreeMap<String, TreeSet<Integer>> ();
 		this.qTypeCountPercentile = new TreeMap<String, TreeMap<Integer,Double>> ();
 		this.totalTimePercentile = new TreeMap<Double, Double>();
+		this.activitiesPercentile = new TreeMap<Integer, Double>();
 	}
 
 	void preprocessingStudents(){
@@ -218,12 +220,21 @@ class Data{
 					response.exitTime.add( eventTime );
 				}else{
 
-					if( action.length() >  0 ){
-						response.obserableCounts++;
+					if( action.length() >  0 && action.length() < 20 ){
+
+						Integer count = response.obserableCounts.get( action );
+						if( count == null)
+							count = 0;
+						count++;
+						response.obserableCounts.put( action, count );
 					}
 
-					if( info.length() >  0){
-						response.infoCounts++;
+					if( info.length() >  0 &&  info.length() <  20 ){
+						Integer count = response.infoCounts.get( info );
+						if( count == null)
+							count = 0;
+						count++;
+						response.infoCounts.put( info, count );
 					}
 
 				}
@@ -295,8 +306,8 @@ class Data{
 					question.students.add( id );
 					question.timeTakens.add( response.totalTime );
 					question.attempts.add( response.attempts );
-					question.observables.add ( response.obserableCounts );
-					question.infos.add( response.infoCounts );
+					question.observables.add ( response.obserableCounts.size() );
+					question.infos.add( response.infoCounts.size() );
 					questions.put( qId, question );	
 					totalTime +=  response.totalTime;
 				}
@@ -360,7 +371,7 @@ class Data{
 				System.out.println("@attribute @"+key+"-TimeTaken numeric");	
 				System.out.println("@attribute @"+key+"-Attempts numeric");	
 				System.out.println("@attribute @"+key+"-obserable numeric");	
-				//System.out.println("@attribute @"+key+"-info numeric");	
+				System.out.println("@attribute @"+key+"-info numeric");	
 			}
 		
 		}
@@ -375,8 +386,6 @@ class Data{
 		for( String id: students.keySet() ){
 
 			Student student = students.get( id );
-			if( student.totalTime < 9 )
-			continue;
 			System.out.print( lable );
 			System.out.print(", "+totalTimePercentile.get( student.totalTime ) );
 
@@ -408,12 +417,13 @@ class Data{
 					else
 						System.out.print(", 0.0");
 					
+					/*
+						
 					if( response != null && question != null && question.observablesPercentiles.get( response.obserableCounts )  != null )
 						System.out.print(", "+question.observablesPercentiles.get( response.obserableCounts ) );
 					else
 						System.out.print(", 0.0");
 
-					/*
 
 					if( response != null && question != null && question.infosPercentiles.get( response.infoCounts )  != null )
 						System.out.print(", "+question.infosPercentiles.get( response.infoCounts ) );
@@ -588,8 +598,8 @@ class Training{
 
 		data30.printHeader();
 		data30.print( data30 );
-		data20.print( data30 );
-		data10.print( data30 );
+		//data20.print( data30 );
+		//data10.print( data30 );
 	}
 
 	public static void main(String[] args){
