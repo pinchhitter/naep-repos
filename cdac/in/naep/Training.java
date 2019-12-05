@@ -9,9 +9,29 @@ import java.sql.Timestamp;
 
 class Utility{
 
+	static Map<String, TreeMap<Double, Double>> calculatePercentile_( Map<String,TreeSet<Double>> data ){ 
+
+		Map<String,TreeMap<Double, Double>> percentiles = new TreeMap<String, TreeMap<Double, Double>>();
+
+		for(String key: data.keySet() ){
+
+			List<Double> all = new ArrayList<Double>( data.get( key ) );
+			Collections.sort( all );
+			TreeMap<Double, Double> percentile = new TreeMap<Double, Double>();
+
+			for(int i = 0; i < all.size(); i++){
+				double p = Math.round( (double ) i  / (double) all.size() * (double) 100 ) / (double) 100;
+				percentile.put( all.get( i ), p );
+			}
+			percentiles.put( key, percentile );
+		}
+	return percentiles;
+	}	
+
 	static Map<String, TreeMap<Integer, Double>> calculatePercentile( Map<String,TreeSet<Integer>> data ){ 
 
 		Map<String,TreeMap<Integer,Double>> percentiles = new TreeMap<String, TreeMap<Integer,Double>>();
+
 		for(String key: data.keySet() ){
 
 			List<Integer> all = new ArrayList<Integer>( data.get( key ) );
@@ -140,20 +160,26 @@ class Student{
 	String id;
 	String lable;	
 	double totalTime;
+
 	List<String> activities;
 
 	Map<String, Response> responses;
 	Map<String, String> results;	
+
 	Map<String, Integer> typeCount;
+	Map<String, Double> typeTimeTaken;
 
 	Student(String id){
 
 		this.id = id;
 		this.totalTime = 0.0d;
+
 		this.activities = new ArrayList<String> ();
 		this.responses = new TreeMap<String, Response> ();
 		this.results = new TreeMap<String, String>();
+
 		this.typeCount = new TreeMap<String, Integer>();
+		this.typeTimeTaken = new TreeMap<String, Double>();
 
 		this.results.put("A", "0.0");
 		this.results.put("B", "0.0");
@@ -165,17 +191,20 @@ class Data{
 
 	String lable;
 
-
 	Map<String, Student> students;
 	Map<String, Question> questions;
 
 	Set<Double> totalTimes;
 	Set<Integer> activities;
-	Map<String, TreeSet<Integer>> qTypeCounts;
 
-	Map<String, TreeMap<Integer, Double>> qTypeCountPercentile;
+	Map<String, TreeSet<Integer>> qTypeCounts;
+	Map<String, TreeSet<Double>> qTypeTimeTaken;
+
 	Map<Double, Double> totalTimePercentile;
 	Map<Integer, Double> activitiesPercentile;
+
+	Map<String, TreeMap<Integer, Double>> qTypeCountPercentile;
+	Map<String, TreeMap<Double, Double>> qTypeTimeTakenPercentile;
 
 	Data( String lable ){
 
@@ -188,9 +217,12 @@ class Data{
 		this.activities = new TreeSet<Integer>();
 
 		this.qTypeCounts = new TreeMap<String, TreeSet<Integer>> ();
-		this.qTypeCountPercentile = new TreeMap<String, TreeMap<Integer,Double>> ();
+		this.qTypeTimeTaken =  new TreeMap<String, TreeSet<Double>> ();
 		this.totalTimePercentile = new TreeMap<Double, Double>();
 		this.activitiesPercentile = new TreeMap<Integer, Double>();
+
+		this.qTypeCountPercentile = new TreeMap<String, TreeMap<Integer,Double>> ();
+		this.qTypeTimeTakenPercentile = new TreeMap<String, TreeMap<Double, Double>> ();
 	}
 
 	void preprocessingStudents(){
@@ -310,6 +342,13 @@ class Data{
 					question.infos.add( response.infoCounts.size() );
 					questions.put( qId, question );	
 					totalTime +=  response.totalTime;
+
+					Double timeTaken = student.typeTimeTaken.get( response.type );
+					if( timeTaken == null)	
+						timeTaken = 0.0d;
+					timeTaken += response.totalTime;
+					student.typeTimeTaken.put( response.type, timeTaken );
+
 				}
 			}
 
@@ -318,12 +357,20 @@ class Data{
 			}
 
 			for( String type: student.typeCount.keySet() ){
+
 				TreeSet<Integer> counts = qTypeCounts.get( type );
 				if( counts == null){
 					counts = new TreeSet<Integer>();
 				}
 				counts.add( student.typeCount.get( type ) );	
 				qTypeCounts.put( type, counts );
+
+				TreeSet<Double> timeTakens = qTypeTimeTaken.get( type );
+				if( timeTakens == null ){
+					timeTakens = new TreeSet<Double>();
+				}
+				timeTakens.add(  student.typeTimeTaken.get( type ) );
+				qTypeTimeTaken.put( type, timeTakens );
 			}
 		}
 		
@@ -337,6 +384,7 @@ class Data{
 
 		this.qTypeCountPercentile = Utility.calculatePercentile( qTypeCounts );
 		this.totalTimePercentile = Utility.calculatePercentile( totalTimes );
+		this.qTypeTimeTakenPercentile = Utility.calculatePercentile_( qTypeTimeTaken );
 		
 		for(String qid: this.questions.keySet() ){
 			this.questions.get( qid ).calulatePerCentile();
@@ -359,6 +407,7 @@ class Data{
 
 			if( qTypeCountPercentile.get( type ).size() > 1 ){
 				System.out.println("@attribute "+type+"-Type numeric");	
+				System.out.println("@attribute "+type+"-TypeTimeTakenPercentile numeric");	
 			}
 		}
 
@@ -370,8 +419,8 @@ class Data{
 
 				System.out.println("@attribute @"+key+"-TimeTaken numeric");	
 				System.out.println("@attribute @"+key+"-Attempts numeric");	
-				System.out.println("@attribute @"+key+"-obserable numeric");	
-				System.out.println("@attribute @"+key+"-info numeric");	
+				//System.out.println("@attribute @"+key+"-obserable numeric");	
+				//System.out.println("@attribute @"+key+"-info numeric");	
 			}
 		
 		}
@@ -398,6 +447,12 @@ class Data{
 					}else{
 						System.out.print(", 0.0");	
 					}
+
+					if( student.typeCount.get( type ) != null && qTypeTimeTakenPercentile.get( type ) != null ){
+						System.out.print(", "+qTypeTimeTakenPercentile.get( type ).get( student.typeTimeTaken.get( type ) ) );	
+					}else{
+						System.out.print(", 0.0");	
+					}
 				}
 			} 
 			for(String key: master.questions.keySet() ){
@@ -416,9 +471,7 @@ class Data{
 						System.out.print(", "+question.attemptsPercentile.get( response.attempts ) );
 					else
 						System.out.print(", 0.0");
-					
-					/*
-						
+					/*	
 					if( response != null && question != null && question.observablesPercentiles.get( response.obserableCounts )  != null )
 						System.out.print(", "+question.observablesPercentiles.get( response.obserableCounts ) );
 					else
@@ -598,8 +651,8 @@ class Training{
 
 		data30.printHeader();
 		data30.print( data30 );
-		//data20.print( data30 );
-		//data10.print( data30 );
+		data20.print( data30 );
+		data10.print( data30 );
 	}
 
 	public static void main(String[] args){
